@@ -13,7 +13,7 @@ module MSIG-SPEC-EXECUTE
         <output>
           _ =>
           #buf(32, keccak( #parseHexWord("0x19") : #parseHexWord("0x1")
-                         : (  #buf(32, DOM_SEP) 
+                         : (  #buf(32, DOM_SEP)
                            ++ #buf(32, keccak(#encodeArgs( #bytes32(#exec_typehash)
                                                          , #address(CALL_SRC)
                                                          , #address(CALL_DST)
@@ -31,13 +31,17 @@ module MSIG-SPEC-EXECUTE
         <callState>
           <program>
             #runtime
-            ++ #buf(32, _THRESH)
+            ++ #buf(32, THRESH)
             ++ #buf(32, DOM_SEP)
-            ++ #buf(SIGNERS_LEN, _SIGNERS)
           </program>
-          <jumpDests> #computeValidJumpDests(#runtime) </jumpDests>
+          <jumpDests> #computeValidJumpDests(#runtime) </jumpDests> // TODO: this should include jumpdests in the appended data
+          /* <jumpDests> */
+          /*   #computeValidJumpDests(  #runtime */
+          /*                         ++ #buf(32, THRESH) */
+          /*                         ++ #buf(32, DOM_SEP) ) */
+          /* </jumpDests> */
           <id> VADDRESS </id>
-          <caller> _ </caller>
+          <caller> VCALLER </caller>
           <callData>
             #abiCallData( "execute"
                         , #address(CALL_SRC)
@@ -46,7 +50,7 @@ module MSIG-SPEC-EXECUTE
                         , #uint256(CALL_GAS)
                         , #uint256(CALL_VAL)
                         , #bytes(#buf(DATA_LEN, DATA))
-                        , #bytes(.ByteArray) )
+                        , #bytes(#buf(SIGS_LEN, _SIGS)) )
           </callData>
           <callValue> VCALLVALUE </callValue>
           <wordStack> .WordStack => ?_ </wordStack>
@@ -55,10 +59,14 @@ module MSIG-SPEC-EXECUTE
           <gas> #gas(VGAS) => ?_ </gas>
           <memoryUsed> 0 => ?_ </memoryUsed>
           <callGas> _ => ?_ </callGas>
-          <static> _ </static>
+          <static> false </static>
           <callDepth> _ </callDepth>
         </callState>
-        <substate> _ </substate>
+        <substate>
+          <selfDestruct> _ </selfDestruct>
+          <log> _ </log>
+          <refund> _ => ?_ </refund> // TODO: make this tighter
+        </substate>
         <gasPrice> _ </gasPrice>
         <origin> _ </origin>
         <blockhashes> _ </blockhashes>
@@ -71,8 +79,12 @@ module MSIG-SPEC-EXECUTE
           <account>
             <acctID> VADDRESS </acctID>
             <balance> _ </balance>
-            <code> #runtime </code>
-            <storage> 0 |-> MSIG_NONCE ...</storage>
+            <code>
+              #runtime
+              ++ #buf(32, THRESH)
+              ++ #buf(32, DOM_SEP)
+            </code>
+            <storage> 0 |-> (MSIG_NONCE => MSIG_NONCE +Int 1) ...</storage>
             <origStorage> _ </origStorage>
             <nonce> _ </nonce>
           </account>
@@ -84,16 +96,25 @@ module MSIG-SPEC-EXECUTE
       </network>
     </ethereum>
     requires
-      #rangeUInt(256, MSIG_NONCE)
-      andBool VCALLVALUE ==Int 0
+      VCALLVALUE ==Int 0
       andBool VGAS ==Int 500000
+      // calldata
       andBool #rangeAddress(CALL_SRC)
       andBool #rangeAddress(CALL_DST)
       andBool #rangeUInt(8, CALL_TYPE)
       andBool #rangeUInt(256, CALL_GAS)
       andBool #rangeUInt(256, CALL_VAL)
-      andBool #rangeUInt(8, SIGNERS_LEN)
-      andBool #range (1 <= DATA_LEN < 2 ^Int 16)
+      /* andBool #range(1 <= DATA_LEN < 2 ^Int 16) // TODO: causes K to run out of memory */
+      andBool DATA_LEN ==Int 60
+      andBool #range((THRESH *Int 65) <= SIGS_LEN < 2 ^Int 16)
+      // contract state
+      andBool #rangeUInt(8, THRESH)
+      andBool #rangeUInt(256, DOM_SEP)
+      andBool #range(0 <= MSIG_NONCE < (pow256 -Int 1))
+      // requires
+      andBool (VCALLER ==Int CALL_SRC orBool CALL_SRC ==Int 0)
+
+      /* andBool #rangeUInt(8, SIGNERS_LEN) */
       /* andBool DATA_LEN ==Int 0 */
 
 endmodule
