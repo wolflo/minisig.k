@@ -1,6 +1,6 @@
 requires "./lemmas/verification.k"
 
-module MSIG-SPEC-NONCE
+module MSIG-SPEC-EXECUTE
   imports VERIFICATION
 
   claim
@@ -10,7 +10,18 @@ module MSIG-SPEC-NONCE
     <schedule> ISTANBUL </schedule>
     <ethereum>
       <evm>
-        <output> .ByteArray => #buf(32, MSIG_NONCE) </output>
+        <output>
+          .ByteArray
+        =>
+          #buf(32, keccak(#encodeArgs( #bytes32(#exec_typehash)
+                                     , #address(CALL_SRC)
+                                     , #address(CALL_DST)
+                                     , #uint8(CALL_TYPE)
+                                     , #uint256(MSIG_NONCE)
+                                     , #uint256(CALL_GAS)
+                                     , #uint256(CALL_VAL)
+                                     , #bytes32(keccak(#buf(DATA_LEN, DATA))) )))
+        </output>
         <statusCode> _ => EVMC_SUCCESS </statusCode>
         <endPC> _ => ?_ </endPC>
         <callStack> _ </callStack>
@@ -21,12 +32,21 @@ module MSIG-SPEC-NONCE
           <jumpDests> #computeValidJumpDests(#runtime) </jumpDests>
           <id> VADDRESS </id>
           <caller> _ </caller>
-          <callData> #abiCallData("nonce", .TypedArgs) </callData>
+          <callData>
+            #abiCallData( "execute"
+                        , #address(CALL_SRC)
+                        , #address(CALL_DST)
+                        , #uint8(CALL_TYPE)
+                        , #uint256(CALL_GAS)
+                        , #uint256(CALL_VAL)
+                        , #bytes(#buf(DATA_LEN, DATA))
+                        , #bytes(.ByteArray) )
+          </callData>
           <callValue> VCALLVALUE </callValue>
           <wordStack> .WordStack => ?_ </wordStack>
           <localMem> .Memory => ?_ </localMem>
           <pc> 0 => ?_ </pc>
-          <gas> VGAS => ?_ </gas>
+          <gas> #gas(VGAS) => ?_ </gas>
           <memoryUsed> 0 => ?_ </memoryUsed>
           <callGas> _ => ?_ </callGas>
           <static> _ </static>
@@ -60,6 +80,13 @@ module MSIG-SPEC-NONCE
     requires
       #rangeUInt(256, MSIG_NONCE)
       andBool VCALLVALUE ==Int 0
-      andBool VGAS >Int 5000
+      andBool VGAS ==Int 500000
+      andBool #rangeAddress(CALL_SRC)
+      andBool #rangeAddress(CALL_DST)
+      andBool #rangeUInt(8, CALL_TYPE)
+      andBool #rangeUInt(256, CALL_GAS)
+      andBool #rangeUInt(256, CALL_VAL)
+      andBool #range (1 <= DATA_LEN < 2 ^Int 16)
+      /* andBool DATA_LEN ==Int 0 */
 
 endmodule

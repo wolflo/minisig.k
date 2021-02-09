@@ -1,3 +1,5 @@
+.PHONY: prove prove-all
+
 BACKEND := java
 SPEC_DIR := specs
 
@@ -7,6 +9,5 @@ $(SPEC_DIR)/%.k.prove: $(SPEC_DIR)/%.k
 	kevm prove --backend $(BACKEND) $< VERIFICATION --smt-prelude specs/lemmas/evm.smt2 --z3-impl-timeout 500 --concrete-rules $(shell cat specs/lemmas/concrete-rules.txt | tr '\n' ',')
 # --log-rules
 
-# prove: $(SPEC_DIR)/$(spec).k.prove; $<
-prove: specs/msig-spec-nonce.k.prove; $<
+prove: $(spec).prove; $<
 prove-all: $(specs:=.prove)
