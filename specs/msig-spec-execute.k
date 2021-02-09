@@ -11,16 +11,17 @@ module MSIG-SPEC-EXECUTE
     <ethereum>
       <evm>
         <output>
-          .ByteArray
-        =>
-          #buf(32, keccak(#encodeArgs( #bytes32(#exec_typehash)
-                                     , #address(CALL_SRC)
-                                     , #address(CALL_DST)
-                                     , #uint8(CALL_TYPE)
-                                     , #uint256(MSIG_NONCE)
-                                     , #uint256(CALL_GAS)
-                                     , #uint256(CALL_VAL)
-                                     , #bytes32(keccak(#buf(DATA_LEN, DATA))) )))
+          _ =>
+          #buf(32, keccak( #parseHexWord("0x19") : #parseHexWord("0x1")
+                         : (  #buf(32, DOM_SEP) 
+                           ++ #buf(32, keccak(#encodeArgs( #bytes32(#exec_typehash)
+                                                         , #address(CALL_SRC)
+                                                         , #address(CALL_DST)
+                                                         , #uint8(CALL_TYPE)
+                                                         , #uint256(MSIG_NONCE)
+                                                         , #uint256(CALL_GAS)
+                                                         , #uint256(CALL_VAL)
+                                                         , #bytes32(keccak(#buf(DATA_LEN, DATA))) ))) ) ))
         </output>
         <statusCode> _ => EVMC_SUCCESS </statusCode>
         <endPC> _ => ?_ </endPC>
@@ -28,7 +29,12 @@ module MSIG-SPEC-EXECUTE
         <interimStates> _ </interimStates>
         <touchedAccounts> _ </touchedAccounts>
         <callState>
-          <program> #runtime </program>
+          <program>
+            #runtime
+            ++ #buf(32, _THRESH)
+            ++ #buf(32, DOM_SEP)
+            ++ #buf(SIGNERS_LEN, _SIGNERS)
+          </program>
           <jumpDests> #computeValidJumpDests(#runtime) </jumpDests>
           <id> VADDRESS </id>
           <caller> _ </caller>
@@ -86,6 +92,7 @@ module MSIG-SPEC-EXECUTE
       andBool #rangeUInt(8, CALL_TYPE)
       andBool #rangeUInt(256, CALL_GAS)
       andBool #rangeUInt(256, CALL_VAL)
+      andBool #rangeUInt(8, SIGNERS_LEN)
       andBool #range (1 <= DATA_LEN < 2 ^Int 16)
       /* andBool DATA_LEN ==Int 0 */
 
